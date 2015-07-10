@@ -195,6 +195,8 @@ public:
      */
     virtual void redactForLogging(mutablebson::Document* cmdObj);
 
+    virtual void redactCommand(mutablebson::Document* cmdObj);
+
     /**
      * Returns a copy of "cmdObj" in a form suitable for writing to logs.
      * Uses redactForLogging() to transform "cmdObj".

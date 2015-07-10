@@ -413,7 +413,104 @@ StringData getProtoString(int op) {
     }
     MONGO_UNREACHABLE;
 }
+
+/**
+ * Recursively iterates through all fields of a given mutable element, and redacts
+ * the specified fields.
+ */
+void redactSomeHelper(mutablebson::Element* current,
+                      const std::vector<std::string>& redactFields,
+                      const std::string& matchingPath,
+                      bool isArrayMember = false);
+
+/**
+ * Given a mutable element, redacts its value. It never redacts
+ * fields with the field name '$comment'.
+ */
+void redactFieldValue(mutablebson::Element* current) {
+    StringData thisFieldName = current->getFieldName();
+
+    std::vector<std::string> neverRedact = {"$comment"};
+    for (const std::string field : neverRedact) {
+        if (thisFieldName == field) {
+            return;
+        }
+    }
+    current->setValueString(
+        StringData("***", StringData::LiteralTag()));  // in the future, do some 1:1 hashing thing
+}
+
+void redactElement(mutablebson::Element* current,
+                   const std::vector<std::string>& redactFields,
+                   const std::string& matchingPath) {
+    BSONType t = current->getType();
+    if (t == Object || t == Array) {
+        bool isArray = (t == Array);
+        mutablebson::Element newCurrent = current->leftChild();
+        redactSomeHelper(&newCurrent, redactFields, matchingPath, isArray);
+    } else {
+        redactFieldValue(current);
+    }
+}
+
+void redactSomeHelper(mutablebson::Element* current,
+                      const std::vector<std::string>& redactFields,
+                      const std::string& matchingPath,
+                      bool isArrayMember) {
+    while (current->ok()) {
+        BSONType t = current->getType();
+        if (isArrayMember && (t == Object || t == Array)) {
+            // tunnel down, since array field names are meaningless (they are just indices)
+            bool isArray = (t == Array);
+            mutablebson::Element newCurrent = current->leftChild();
+            redactSomeHelper(&newCurrent, redactFields, matchingPath, isArray);
+        } else {
+            // check if current is any of the redactFields.
+            for (const std::string& redactField : redactFields) {
+                size_t indexOf = redactField.find(matchingPath);
+                if (indexOf == 0) {  // if it is a prefix
+
+                    if (matchingPath.length() <
+                        redactField.length()) {  // if it is a strict substring/prefix
+                        StringData thisFieldName = current->getFieldName();
+                        std::string separator = (matchingPath.length() == 0) ? "" : ".";
+                        if (redactField.compare(matchingPath.length() + separator.length(),
+                                                thisFieldName.size(),
+                                                thisFieldName.rawData(),
+                                                thisFieldName.size()) == 0) {
+                            std::string newMatchingPath =
+                                matchingPath + separator + thisFieldName.toString();
+                            redactElement(current, redactFields, newMatchingPath);
+                        } else {
+                            // current field name does not match; do not modify matchingPath
+                            continue;
+                        }
+                    } else {  // if it is a full string match
+                        redactElement(current, redactFields, matchingPath);
+                    }
+                }
+            }
+        }
+
+        *current = current->rightSibling();
+    }
+}
+
 }  // namespace
+
+/**
+ * Call this to redact a mutable BSON object.
+ * redactFields is a vector of fields to redact. They can use dot notation;
+ * they must be "absolute paths". If no fields are specified, the default
+ * is to redact all fields (except $comment). $comment fields are NEVER
+ * redacted. See tests for usage examples and expected behavior.
+ * Side note, redactFields is not expected to be very large (1-3 elements.)
+ */
+void redactSome(mutablebson::Document* cmdObj, const std::vector<std::string>& redactFields) {
+    mutablebson::Element current = cmdObj->root().leftChild();
+    std::string matchingPath = "";
+    redactSomeHelper(&current, redactFields, matchingPath);
+}
 
 #define OPDEBUG_TOSTRING_HELP(x) \
     if (x >= 0)                  \
@@ -439,13 +536,31 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
                 mutablebson::Document cmdToLog(query, mutablebson::Document::kInPlaceDisabled);
                 curCommand->redactForLogging(&cmdToLog);
                 s << curCommand->name << " ";
+
+                if (serverGlobalParams.logRedact) {
+                    curCommand->redactCommand(&cmdToLog);
+                }
+
                 s << cmdToLog.toString();
             } else {  // Should not happen but we need to handle curCommand == NULL gracefully
-                s << query.toString();
+                if (serverGlobalParams.logRedact) {
+                    mutablebson::Document queryDoc(query);
+                    redactSome(&queryDoc);
+                    s << queryDoc.toString();
+                } else {
+                    s << query.toString();
+                }
             }
         } else {
             s << " query: ";
-            s << query.toString();
+
+            if (serverGlobalParams.logRedact) {
+                mutablebson::Document queryDoc(query);
+                redactSome(&queryDoc);
+                s << queryDoc.toString();
+            } else {
+                s << query.toString();
+            }
         }
     }
 
@@ -455,7 +570,13 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
 
     if (!updateobj.isEmpty()) {
         s << " update: ";
-        updateobj.toString(s);
+        if (serverGlobalParams.logRedact) {
+            mutablebson::Document updateDoc(updateobj);
+            redactSome(&updateDoc);
+            s << updateDoc.toString();
+        } else {
+            s << updateobj.toString();
+        }
     }
 
     OPDEBUG_TOSTRING_HELP(cursorid);

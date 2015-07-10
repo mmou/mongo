@@ -329,6 +329,11 @@ public:
 
         return true;
     }
+
+    void redactCommand(mutablebson::Document* cmdObj) {
+        redactSome(cmdObj, std::vector<std::string>{"pipeline.$match"});
+    }
+
 } cmdPipeline;
 
 }  // namespace mongo

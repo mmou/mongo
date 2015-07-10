@@ -251,6 +251,9 @@ Status addGeneralServerOptions(moe::OptionSection* options) {
                                moe::Switch,
                                "append to logpath instead of over-writing");
 
+    options->addOptionChaining(
+        "systemLog.logRedact", "logredact", moe::Switch, "redact query values in log");
+
     options->addOptionChaining("systemLog.logRotate",
                                "logRotate",
                                moe::String,
@@ -922,11 +925,14 @@ Status storeServerOptions(const moe::Environment& params, const std::vector<std:
         serverGlobalParams.logAppend = true;
     }
 
+    if (params.count("systemLog.logRedact") && params["systemLog.logRedact"].as<bool>() == true) {
+        serverGlobalParams.logRedact = true;
+    }
+
     if (params.count("systemLog.logRotate")) {
         std::string logRotateParam = params["systemLog.logRotate"].as<string>();
         if (logRotateParam == "reopen") {
             serverGlobalParams.logRenameOnRotate = false;
-
             if (serverGlobalParams.logAppend == false) {
                 return Status(ErrorCodes::BadValue,
                               "logAppend must equal true if logRotate is set to reopen");

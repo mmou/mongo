@@ -47,6 +47,12 @@ class Command;
 class CurOp;
 class OperationContext;
 
+namespace mutablebson {
+class Document;
+}
+
+void redactSome(mutablebson::Document* cmdObj, const std::vector<std::string>& redactFields = {""});
+
 /**
  * stores a copy of a bson obj in a fixed size buffer
  * if its too big for the buffer, says "too big"

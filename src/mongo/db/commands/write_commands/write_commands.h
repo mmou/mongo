@@ -96,6 +96,7 @@ class CmdInsert : public WriteCmd {
 public:
     CmdInsert();
     void redactForLogging(mutablebson::Document* cmdObj);
+    void redactCommand(mutablebson::Document* cmdObj);
 
 private:
     virtual void help(std::stringstream& help) const;
@@ -107,6 +108,7 @@ class CmdUpdate : public WriteCmd {
 public:
     CmdUpdate();
     void redactForLogging(mutablebson::Document* cmdObj);
+    void redactCommand(mutablebson::Document* cmdObj);
 
 private:
     virtual void help(std::stringstream& help) const;
@@ -118,6 +120,7 @@ class CmdDelete : public WriteCmd {
 public:
     CmdDelete();
     void redactForLogging(mutablebson::Document* cmdObj);
+    void redactCommand(mutablebson::Document* cmdObj);
 
 private:
     virtual void help(std::stringstream& help) const;

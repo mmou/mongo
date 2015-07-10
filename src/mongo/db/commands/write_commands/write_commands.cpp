@@ -272,6 +272,10 @@ void CmdInsert::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("documents", StringData::LiteralTag()));
 }
 
+void CmdInsert::redactCommand(mutablebson::Document* cmdObj) {
+    redactSome(cmdObj, std::vector<std::string>{"documents"});
+}
+
 void CmdInsert::help(stringstream& help) const {
     help << "insert documents";
 }
@@ -282,6 +286,10 @@ void CmdUpdate::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("updates", StringData::LiteralTag()));
 }
 
+void CmdUpdate::redactCommand(mutablebson::Document* cmdObj) {
+    redactSome(cmdObj, std::vector<std::string>{"updates.q", "updates.u"});
+}
+
 void CmdUpdate::help(stringstream& help) const {
     help << "update documents";
 }
@@ -290,6 +298,10 @@ CmdDelete::CmdDelete() : WriteCmd("delete", BatchedCommandRequest::BatchType_Del
 
 void CmdDelete::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("deletes", StringData::LiteralTag()));
+}
+
+void CmdDelete::redactCommand(mutablebson::Document* cmdObj) {
+    redactSome(cmdObj, std::vector<std::string>{"deletes.q"});
 }
 
 void CmdDelete::help(stringstream& help) const {
