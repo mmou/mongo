@@ -32,6 +32,7 @@
 #pragma once
 
 #include "mongo/base/disallow_copying.h"
+#include "mongo/bson/mutable/document.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/server_options.h"
 #include "mongo/platform/atomic_word.h"
@@ -51,7 +52,10 @@ namespace mutablebson {
 class Document;
 }
 
-void redactSome(mutablebson::Document* cmdObj, const std::vector<std::string>& redactFields = {""});
+void redactSome(mutablebson::Document* cmdObj,
+                const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+                const std::vector<std::string>& redactFields = {""});
+std::string simpleRedactFieldValue(mutablebson::Element* current);
 
 /**
  * stores a copy of a bson obj in a fixed size buffer

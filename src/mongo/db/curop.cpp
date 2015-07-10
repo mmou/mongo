@@ -33,7 +33,6 @@
 #include "mongo/db/curop.h"
 
 #include "mongo/base/disallow_copying.h"
-#include "mongo/bson/mutable/document.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/server_status_metric.h"
@@ -415,30 +414,17 @@ StringData getProtoString(int op) {
 }
 
 /**
- * Given a mutable element, increments its value. Assumes that field elements are not originally
- * ints. Used by curop_test.cpp.
- */
-int incrementFieldValue(mutablebson::Element* current) {
-    BSONType t = current->getType();
-    if (t != NumberInt) {
-        return 1;
-    } else {
-        return current->getValue().numberInt() + 1;
-    }
-}
-
-/**
  * Given a mutable element that is not an object or array, redacts its value. It replaces the value
  * with the output of the function getRedactedValue, which takes in the current Element. It never
  * redacts fields with the field name '$comment'.
  */
 void redactFieldValue(mutablebson::Element* current,
-                      std::function<int(mutablebson::Element*)> getRedactedValue) {
+                      const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
     StringData thisFieldName = current->getFieldName();
 
     if (thisFieldName != "$comment") {  // never redact
-        current->setValueString(StringData(std::to_string(
-            getRedactedValue(current))));  // in the future, do some 1:1 hashing thing
+        current->setValueString(
+            StringData(getRedactedValue(current)));  // in the future, do some 1:1 hashing thing
     }
 }
 
@@ -447,6 +433,7 @@ void redactFieldValue(mutablebson::Element* current,
  * the specified fields.
  */
 void redactSomeHelper(mutablebson::Element* current,
+                      const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
                       const std::vector<std::string>& redactFields,
                       const std::string& matchingPath,
                       bool isArrayMember = false) {
@@ -459,7 +446,7 @@ void redactSomeHelper(mutablebson::Element* current,
             // tunnel down, since array field names are meaningless (they are just indices)
             bool isArray = (t == Array);
             mutablebson::Element newCurrent = current->leftChild();
-            redactSomeHelper(&newCurrent, redactFields, matchingPath, isArray);
+            redactSomeHelper(&newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
         } else {
             // check if complete match
             std::vector<std::string>::const_iterator fullMatchIt =
@@ -469,13 +456,13 @@ void redactSomeHelper(mutablebson::Element* current,
                                  -> bool { return redactField == matchingPath; });
             if (fullMatchIt != redactFields.end() && *fullMatchIt == matchingPath) {
                 // then complete match. redact.
-
                 if (t == Object || t == Array) {
                     bool isArray = (t == Array);
                     mutablebson::Element newCurrent = current->leftChild();
-                    redactSomeHelper(&newCurrent, redactFields, matchingPath, isArray);
+                    redactSomeHelper(
+                        &newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
                 } else {
-                    redactFieldValue(current, incrementFieldValue);
+                    redactFieldValue(current, getRedactedValue);
                 }
 
             } else {
@@ -505,11 +492,14 @@ void redactSomeHelper(mutablebson::Element* current,
                     if (t == Object || t == Array) {
                         bool isArray = (t == Array);
                         mutablebson::Element newCurrent = current->leftChild();
-                        redactSomeHelper(
-                            &newCurrent, redactFields, std::move(newMatchingPath), isArray);
+                        redactSomeHelper(&newCurrent,
+                                         getRedactedValue,
+                                         redactFields,
+                                         std::move(newMatchingPath),
+                                         isArray);
                     } else if (*prefixMatchIt == newMatchingPath) {
                         // only redact non-objects/arrays if complete match
-                        redactFieldValue(current, incrementFieldValue);
+                        redactFieldValue(current, getRedactedValue);
                     }
                 }
             }
@@ -521,6 +511,13 @@ void redactSomeHelper(mutablebson::Element* current,
 }  // namespace
 
 /**
+ * Given a mutable element, replaces value with "***".
+ */
+std::string simpleRedactFieldValue(mutablebson::Element* current) {
+    return "***";
+}
+
+/**
  * Call this to redact a mutable BSON object.
  * redactFields is a vector of fields to redact. They can use dot notation;
  * they must be "absolute paths". If no fields are specified, the default
@@ -528,9 +525,11 @@ void redactSomeHelper(mutablebson::Element* current,
  * redacted. See tests for usage examples and expected behavior.
  * Side note, redactFields is not expected to be very large (1-3 elements.)
  */
-void redactSome(mutablebson::Document* cmdObj, const std::vector<std::string>& redactFields) {
+void redactSome(mutablebson::Document* cmdObj,
+                const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+                const std::vector<std::string>& redactFields) {
     mutablebson::Element current = cmdObj->root().leftChild();
-    redactSomeHelper(&current, redactFields, "");
+    redactSomeHelper(&current, getRedactedValue, redactFields, "");
 }
 
 #define OPDEBUG_TOSTRING_HELP(x) \
@@ -566,7 +565,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
             } else {  // Should not happen but we need to handle curCommand == NULL gracefully
                 if (serverGlobalParams.logRedact) {
                     mutablebson::Document queryDoc(query);
-                    redactSome(&queryDoc);
+                    redactSome(&queryDoc, simpleRedactFieldValue);
                     s << queryDoc.toString();
                 } else {
                     s << query.toString();
@@ -577,7 +576,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
 
             if (serverGlobalParams.logRedact) {
                 mutablebson::Document queryDoc(query);
-                redactSome(&queryDoc);
+                redactSome(&queryDoc, simpleRedactFieldValue);
                 s << queryDoc.toString();
             } else {
                 s << query.toString();
@@ -593,7 +592,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
         s << " update: ";
         if (serverGlobalParams.logRedact) {
             mutablebson::Document updateDoc(updateobj);
-            redactSome(&updateDoc);
+            redactSome(&updateDoc, simpleRedactFieldValue);
             s << updateDoc.toString();
         } else {
             s << updateobj.toString();

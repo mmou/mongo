@@ -475,7 +475,7 @@ public:
     }
 
     void redactCommand(mutablebson::Document* cmdObj) {
-        redactSome(cmdObj, std::vector<std::string>{"query", "update"});
+        redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"query", "update"});
     }
 
 } cmdFindAndModify;

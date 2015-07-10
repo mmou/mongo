@@ -268,7 +268,7 @@ void CmdInsert::redactForLogging(mutablebson::Document* cmdObj) {
 }
 
 void CmdInsert::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, std::vector<std::string>{"documents"});
+    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
 }
 
 void CmdInsert::help(stringstream& help) const {
@@ -282,7 +282,7 @@ void CmdUpdate::redactForLogging(mutablebson::Document* cmdObj) {
 }
 
 void CmdUpdate::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, std::vector<std::string>{"updates.q", "updates.u"});
+    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
 }
 
 void CmdUpdate::help(stringstream& help) const {
@@ -296,7 +296,7 @@ void CmdDelete::redactForLogging(mutablebson::Document* cmdObj) {
 }
 
 void CmdDelete::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, std::vector<std::string>{"deletes.q"});
+    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
 }
 
 void CmdDelete::help(stringstream& help) const {

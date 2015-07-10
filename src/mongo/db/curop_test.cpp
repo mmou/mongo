@@ -100,15 +100,34 @@ TEST(TimeHasExpired, NegSimple) {
     ASSERT_FALSE(curOp.maxTimeHasExpired());
 }
 
+// Redaction Tests
+
+/**
+ * Given a mutable element, replaces value with "***". If already "***", replaces it with "XXX".
+ * Used by curop_test.cpp to determine if a value is being redacted more than once.
+ */
+std::string safeRedactFieldValue(mutablebson::Element* current) {
+    BSONType t = current->getType();
+
+    if (t == String) {
+        if (std::strncmp(current->getValue().valuestrsafe(), "***", 3) == 0) {
+            return "XXX";
+        }
+    }
+    return "***";
+}
+
+
 TEST(RedactSome, BasicRedactAll) {
     static const char jsonSample[] = "{field1: \"value1\"}";
-    static const char redactedSample[] = "{field1: \"1\"}";
+    static const char redactedSample[] = "{field1: \"***\"}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc);
+    mongo::redactSome(&doc, safeRedactFieldValue);
+
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -118,13 +137,14 @@ TEST(RedactSome, BasicRedactSome) {
         "field2: \"value2\"}";
     static const char redactedSample[] =
         "{field1: \"value1\","
-        "field2: \"1\"}";
+        "field2: \"***\"}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, std::vector<std::string>{"field2"});
+    mongo::redactSome(&doc, safeRedactFieldValue, std::vector<std::string>{"field2"});
+
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -144,22 +164,22 @@ TEST(RedactSome, NestedObjectsRedactAll) {
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: \"1\","
-        "field2: \"1\"},"
+        "{field1: \"***\","
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
-        "{field1: \"1\","
+        "{field1: \"***\","
         "field2:"
-        "{field1: \"1\"}"
+        "{field1: \"***\"}"
         "}"
         "},"
-        "field3: \"1\"}";
+        "field3: \"***\"}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc);
+    mongo::redactSome(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -180,13 +200,13 @@ TEST(RedactSome, NestedObjectsRedactSomeA) {
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: \"1\","
-        "field2: \"1\"},"
+        "{field1: \"***\","
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
         "{field1: \"value1\","
         "field2:"
-        "{field1: \"1\"}"
+        "{field1: \"***\"}"
         "}"
         "},"
         "field3: \"value3\"}";
@@ -195,7 +215,8 @@ TEST(RedactSome, NestedObjectsRedactSomeA) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, std::vector<std::string>{"field1", "field2.field1.field2"});
+    mongo::redactSome(
+        &doc, safeRedactFieldValue, std::vector<std::string>{"field1", "field2.field1.field2"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -216,10 +237,10 @@ TEST(RedactSome, NestedObjectsRedactSomeB) {
     static const char redactedSample[] =
         "{field1:"
         "{field1: \"value1\","
-        "field2: \"1\"},"
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
-        "{field1: \"1\","
+        "{field1: \"***\","
         "field2:"
         "{field1: \"value1\"}"
         "}"
@@ -230,7 +251,9 @@ TEST(RedactSome, NestedObjectsRedactSomeB) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, std::vector<std::string>{"field1.field2", "field2.field1.field1"});
+    mongo::redactSome(&doc,
+                      safeRedactFieldValue,
+                      std::vector<std::string>{"field1.field2", "field2.field1.field1"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -251,21 +274,21 @@ TEST(RedactSome, CommentsNeverRedact) {
     static const char redactedSample[] =
         "{field1:"
         "{$comment: \"value1\","
-        "field2: \"1\"},"
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
         "{$comment: \"value1\","
         "field2:"
-        "{field1: \"1\"}"
+        "{field1: \"***\"}"
         "}"
         "},"
-        "field3: \"1\"}";
+        "field3: \"***\"}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc);
+    mongo::redactSome(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -285,22 +308,22 @@ TEST(RedactSome, ArraysRedactAll) {
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [\"1\", \"1\", \"1\", \"1\"],"
-        "field2: \"1\"},"
+        "{field1: [\"***\", \"***\", \"***\", \"***\"],"
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
-        "{field1: \"1\","
+        "{field1: \"***\","
         "field2:"
-        "{field1: [\"1\", \"1\"]}"
+        "{field1: [\"***\", \"***\"]}"
         "}"
         "},"
-        "field3: \"1\"}";
+        "field3: \"***\"}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc);
+    mongo::redactSome(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -321,12 +344,12 @@ TEST(RedactSome, ArraysRedactSome) {
     static const char redactedSample[] =
         "{field1:"
         "{field1: [\"a\", \"b\", \"c\", \"d\"],"
-        "field2: \"1\"},"
+        "field2: \"***\"},"
         "field2:"
         "{field1:"
-        "{field1: \"1\","
+        "{field1: \"***\","
         "field2:"
-        "{field1: [\"1\", \"1\"]}"
+        "{field1: [\"***\", \"***\"]}"
         "}"
         "},"
         "field3: \"value3\"}";
@@ -335,7 +358,8 @@ TEST(RedactSome, ArraysRedactSome) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, std::vector<std::string>{"field1.field2", "field2.field1"});
+    mongo::redactSome(
+        &doc, safeRedactFieldValue, std::vector<std::string>{"field1.field2", "field2.field1"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -350,15 +374,15 @@ TEST(RedactSome, ObjectsArraysRedactAll) {
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"1\"}, [\"1\", \"1\"]]}, {field2: [{field1: \"1\"}, "
-        "[\"1\", {field2: \"1\"}]]}, {field3: [\"1\", {field1: \"1\"}]}],"
-        "field2: [[\"1\", [\"1\", \"1\"], {field3: \"1\"}]]}}";
+        "{field1: [{field1: [{field1: \"***\"}, [\"***\", \"***\"]]}, {field2: [{field1: \"***\"}, "
+        "[\"***\", {field2: \"***\"}]]}, {field3: [\"***\", {field1: \"***\"}]}],"
+        "field2: [[\"***\", [\"***\", \"***\"], {field3: \"***\"}]]}}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc);
+    mongo::redactSome(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
@@ -372,16 +396,17 @@ TEST(RedactSome, ObjectsArraysRedactSome) {
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"1\"}, [\"a\", \"b\"]]}, {field2: [{field1: \"value1\"}, "
+        "{field1: [{field1: [{field1: \"***\"}, [\"a\", \"b\"]]}, {field2: [{field1: \"value1\"}, "
         "[\"a\", "
-        "{field2: \"value2\"}]]}, {field3: [\"1\", {field1: \"1\"}]}],"
-        "field2: [[\"1\", [\"1\", \"1\"], {field3: \"1\"}]]}}";
+        "{field2: \"value2\"}]]}, {field3: [\"***\", {field1: \"***\"}]}],"
+        "field2: [[\"***\", [\"***\", \"***\"], {field3: \"***\"}]]}}";
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
     mongo::redactSome(&doc,
+                      safeRedactFieldValue,
                       std::vector<std::string>{
                           "field1.field1.field1.field1", "field1.field1.field3", "field1.field2"});
     ASSERT_EQUALS(doc.getObject(), robj);
@@ -408,6 +433,7 @@ TEST(RedactSome, IgnoreNonexistentFields) {
 
     mutablebson::Document doc(obj);
     mongo::redactSome(&doc,
+                      safeRedactFieldValue,
                       std::vector<std::string>{"field1.field1.field1.field2",
                                                "field1.field1.field3.field5",
                                                "field1.x"});
