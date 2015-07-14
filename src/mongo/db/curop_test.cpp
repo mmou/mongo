@@ -272,13 +272,13 @@ TEST(RedactSome, CommentsNeverRedact) {
 TEST(RedactSome, ArraysRedactAll) {
     static const char jsonSample[] =
         "{field1:"
-        "{field1: [10, 298, 73, 5],"
+        "{field1: [\"a\", \"b\", \"c\", \"d\"],"
         "field2: \"value2\"},"
         "field2:"
         "{field1:"
         "{field1: \"value1\","
         "field2:"
-        "{field1: [2, 70]}"
+        "{field1: [\"a\", \"b\"]}"
         "}"
         "},"
         "field3: \"value3\"}";
@@ -307,20 +307,20 @@ TEST(RedactSome, ArraysRedactAll) {
 TEST(RedactSome, ArraysRedactSome) {
     static const char jsonSample[] =
         "{field1:"
-        "{field1: [10, 298, 73, 5],"
+        "{field1: [\"a\", \"b\", \"c\", \"d\"],"
         "field2: \"value2\"},"
         "field2:"
         "{field1:"
         "{field1: \"value1\","
         "field2:"
-        "{field1: [2, 70]}"
+        "{field1: [\"a\", \"b\"]}"
         "}"
         "},"
         "field3: \"value3\"}";
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [10, 298, 73, 5],"
+        "{field1: [\"a\", \"b\", \"c\", \"d\"],"
         "field2: \"1\"},"
         "field2:"
         "{field1:"
@@ -343,9 +343,10 @@ TEST(RedactSome, ArraysRedactSome) {
 TEST(RedactSome, ObjectsArraysRedactAll) {
     static const char jsonSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"value1\"}, [82, 70]]}, {field2: [{field1: \"value1\"}, "
-        "[34, {field2: \"value2\"}]]}, {field3: [70, {field1: \"value1\"}]}],"
-        "field2: [[33, [41, 58], {field3: \"value3\"}]]}}";
+        "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
+        "\"value1\"}, "
+        "[\"a\", {field2: \"value2\"}]]}, {field3: [\"a\", {field1: \"value1\"}]}],"
+        "field2: [[\"a\", [\"a\", \"b\"], {field3: \"value3\"}]]}}";
 
     static const char redactedSample[] =
         "{field1:"
@@ -364,13 +365,15 @@ TEST(RedactSome, ObjectsArraysRedactAll) {
 TEST(RedactSome, ObjectsArraysRedactSome) {
     static const char jsonSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"value1\"}, [82, 70]]}, {field2: [{field1: \"value1\"}, "
-        "[34, {field2: \"value2\"}]]}, {field3: [70, {field1: \"value1\"}]}],"
-        "field2: [[33, [41, 58], {field3: \"value3\"}]]}}";
+        "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
+        "\"value1\"}, "
+        "[\"a\", {field2: \"value2\"}]]}, {field3: [\"a\", {field1: \"value1\"}]}],"
+        "field2: [[\"a\", [\"a\", \"b\"], {field3: \"value3\"}]]}}";
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"1\"}, [82, 70]]}, {field2: [{field1: \"value1\"}, [34, "
+        "{field1: [{field1: [{field1: \"1\"}, [\"a\", \"b\"]]}, {field2: [{field1: \"value1\"}, "
+        "[\"a\", "
         "{field2: \"value2\"}]]}, {field3: [\"1\", {field1: \"1\"}]}],"
         "field2: [[\"1\", [\"1\", \"1\"], {field3: \"1\"}]]}}";
 
@@ -387,24 +390,28 @@ TEST(RedactSome, ObjectsArraysRedactSome) {
 TEST(RedactSome, IgnoreNonexistentFields) {
     static const char jsonSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"value1\"}, [82, 70]]}, {field2: [{field1: \"value1\"}, "
-        "[34, {field2: \"value2\"}]]}, {field3: [70, {field1: \"value1\"}]}],"
-        "field2: [[33, [41, 58], {field3: \"value3\"}]]}}";
+        "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
+        "\"value1\"}, "
+        "[\"a\", {field2: \"value2\"}]]}, {field3: [\"a\", {field1: \"value1\"}]}],"
+        "field2: [[\"a\", [\"a\", \"b\"], {field3: \"value3\"}]]}}";
 
     static const char redactedSample[] =
         "{field1:"
-        "{field1: [{field1: [{field1: \"value1\"}, [82, 70]]}, {field2: [{field1: \"value1\"}, "
-        "[34, {field2: \"value2\"}]]}, {field3: [70, {field1: \"value1\"}]}],"
-        "field2: [[33, [41, 58], {field3: \"value3\"}]]}}";
+        "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
+        "\"value1\"}, "
+        "[\"a\", {field2: \"value2\"}]]}, {field3: [\"a\", {field1: \"value1\"}]}],"
+        "field2: [[\"a\", [\"a\", \"b\"], {field3: \"value3\"}]]}}";
+
 
     mongo::BSONObj obj = mongo::fromjson(jsonSample);
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
     mongo::redactSome(&doc,
-                      std::vector<std::string>{
-                          "field1.field1.field1.field2", "field1.field1.field3.field5.field1", "field1.x"});
-    ASSERT_EQUALS(doc.getObject(), robj);    
+                      std::vector<std::string>{"field1.field1.field1.field2",
+                                               "field1.field1.field3.field5",
+                                               "field1.x"});
+    ASSERT_EQUALS(doc.getObject(), robj);
 }
 
 }  // namespace
