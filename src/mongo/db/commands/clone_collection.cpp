@@ -33,6 +33,7 @@
 #include "mongo/base/init.h"
 #include "mongo/base/status.h"
 #include "mongo/bson/util/builder.h"
+#include "mongo/bson/mutable/document.h"
 #include "mongo/client/dbclientinterface.h"
 #include "mongo/db/auth/action_set.h"
 #include "mongo/db/auth/resource_pattern.h"
@@ -105,6 +106,11 @@ public:
                 "is placed at the same db.collection (namespace) as the source.\n";
     }
 
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(
+            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"query"});
+    }
+
     virtual bool run(OperationContext* txn,
                      const string& dbname,
                      BSONObj& cmdObj,
@@ -139,11 +145,20 @@ public:
         if (query.isEmpty())
             query = BSONObj();
 
+        string queryString;
+        if (serverGlobalParams.logRedact) {
+            mutablebson::Document queryDoc(query);
+            redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+            queryString = queryDoc.toString();
+        } else {
+            queryString = query.toString();
+        }
+
         BSONElement copyIndexesSpec = cmdObj.getField("copyindexes");
         bool copyIndexes = copyIndexesSpec.isBoolean() ? copyIndexesSpec.boolean() : true;
 
         log() << "cloneCollection.  db:" << dbname << " collection:" << collection
-              << " from: " << fromhost << " query: " << query << " "
+              << " from: " << fromhost << " query: " << queryString << " "
               << (copyIndexes ? "" : ", not copying indexes") << endl;
 
         Cloner cloner;
