@@ -108,17 +108,14 @@ TEST(TimeHasExpired, NegSimple) {
  */
 std::string safeRedactFieldValue(mutablebson::Element* current) {
     BSONType t = current->getType();
-
     if (t == String) {
-        if (std::strncmp(current->getValue().valuestrsafe(), "***", 3) == 0) {
-            return "XXX";
-        }
+        ASSERT_TRUE(std::strncmp(current->getValue().valuestrsafe(), "***", 3) != 0);
     }
-    return "***";
+    return simpleRedactFieldValue(current);
 }
 
 
-TEST(RedactSome, BasicRedactAll) {
+TEST(redactDocumentForLogging, BasicRedactAll) {
     static const char jsonSample[] = "{field1: \"value1\"}";
     static const char redactedSample[] = "{field1: \"***\"}";
 
@@ -126,12 +123,11 @@ TEST(RedactSome, BasicRedactAll) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue);
-
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, BasicRedactSome) {
+TEST(redactDocumentForLogging, BasicRedactDocumentForLogging) {
     static const char jsonSample[] =
         "{field1: \"value1\","
         "field2: \"value2\"}";
@@ -143,12 +139,11 @@ TEST(RedactSome, BasicRedactSome) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue, std::vector<std::string>{"field2"});
-
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue, std::vector<std::string>{"field2"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, NestedObjectsRedactAll) {
+TEST(redactDocumentForLogging, NestedObjectsRedactAll) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: \"value1\","
@@ -179,12 +174,12 @@ TEST(RedactSome, NestedObjectsRedactAll) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue);
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
 
-TEST(RedactSome, NestedObjectsRedactSomeA) {
+TEST(redactDocumentForLogging, NestedObjectsredactDocumentForLoggingA) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: \"value1\","
@@ -215,12 +210,12 @@ TEST(RedactSome, NestedObjectsRedactSomeA) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(
+    mongo::redactDocumentForLogging(
         &doc, safeRedactFieldValue, std::vector<std::string>{"field1", "field2.field1.field2"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, NestedObjectsRedactSomeB) {
+TEST(redactDocumentForLogging, NestedObjectsredactDocumentForLoggingB) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: \"value1\","
@@ -251,13 +246,14 @@ TEST(RedactSome, NestedObjectsRedactSomeB) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc,
-                      safeRedactFieldValue,
-                      std::vector<std::string>{"field1.field2", "field2.field1.field1"});
+    mongo::redactDocumentForLogging(
+        &doc,
+        safeRedactFieldValue,
+        std::vector<std::string>{"field1.field2", "field2.field1.field1"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, CommentsNeverRedact) {
+TEST(redactDocumentForLogging, CommentsNeverRedact) {
     static const char jsonSample[] =
         "{field1:"
         "{$comment: \"value1\","
@@ -288,11 +284,11 @@ TEST(RedactSome, CommentsNeverRedact) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue);
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, ArraysRedactAll) {
+TEST(redactDocumentForLogging, ArraysRedactAll) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: [\"a\", \"b\", \"c\", \"d\"],"
@@ -323,11 +319,11 @@ TEST(RedactSome, ArraysRedactAll) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue);
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, ArraysRedactSome) {
+TEST(redactDocumentForLogging, ArraysRedactDocumentForLogging) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: [\"a\", \"b\", \"c\", \"d\"],"
@@ -358,13 +354,13 @@ TEST(RedactSome, ArraysRedactSome) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(
+    mongo::redactDocumentForLogging(
         &doc, safeRedactFieldValue, std::vector<std::string>{"field1.field2", "field2.field1"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
 
-TEST(RedactSome, ObjectsArraysRedactAll) {
+TEST(redactDocumentForLogging, ObjectsArraysRedactAll) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
@@ -382,11 +378,11 @@ TEST(RedactSome, ObjectsArraysRedactAll) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc, safeRedactFieldValue);
+    mongo::redactDocumentForLogging(&doc, safeRedactFieldValue);
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, ObjectsArraysRedactSome) {
+TEST(redactDocumentForLogging, ObjectsArraysRedactDocumentForLogging) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
@@ -405,14 +401,15 @@ TEST(RedactSome, ObjectsArraysRedactSome) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc,
-                      safeRedactFieldValue,
-                      std::vector<std::string>{
-                          "field1.field1.field1.field1", "field1.field1.field3", "field1.field2"});
+    mongo::redactDocumentForLogging(&doc,
+                                    safeRedactFieldValue,
+                                    std::vector<std::string>{"field1.field1.field1.field1",
+                                                             "field1.field1.field3",
+                                                             "field1.field2"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-TEST(RedactSome, IgnoreNonexistentFields) {
+TEST(redactDocumentForLogging, IgnoreNonexistentFields) {
     static const char jsonSample[] =
         "{field1:"
         "{field1: [{field1: [{field1: \"value1\"}, [\"a\", \"b\"]]}, {field2: [{field1: "
@@ -432,11 +429,11 @@ TEST(RedactSome, IgnoreNonexistentFields) {
     mongo::BSONObj robj = mongo::fromjson(redactedSample);
 
     mutablebson::Document doc(obj);
-    mongo::redactSome(&doc,
-                      safeRedactFieldValue,
-                      std::vector<std::string>{"field1.field1.field1.field2",
-                                               "field1.field1.field3.field5",
-                                               "field1.x"});
+    mongo::redactDocumentForLogging(&doc,
+                                    safeRedactFieldValue,
+                                    std::vector<std::string>{"field1.field1.field1.field2",
+                                                             "field1.field1.field3.field5",
+                                                             "field1.x"});
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 

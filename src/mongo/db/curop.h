@@ -32,7 +32,6 @@
 #pragma once
 
 #include "mongo/base/disallow_copying.h"
-#include "mongo/bson/mutable/document.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/db/server_options.h"
 #include "mongo/platform/atomic_word.h"
@@ -50,11 +49,26 @@ class OperationContext;
 
 namespace mutablebson {
 class Document;
+class Element;
 }
 
-void redactSome(mutablebson::Document* cmdObj,
-                const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-                const std::vector<std::string>& redactFields = {""});
+/**
+ * Call this to redact a mutable BSON object.
+ * redactFields is a vector of fields to redact. They can use dot notation;
+ * they must be "absolute paths". If no fields are specified, the default
+ * is to redact all fields (except $comment). $comment fields are NEVER
+ * redacted. See tests for usage examples and expected behavior.
+ * Side note, redactFields is not expected to be very large (1-3 elements.)
+ */
+void redactDocumentForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+    const std::vector<std::string>& redactFields = {""});
+
+/**
+ * Given a (any) mutable element, simply returns "***".
+ * In the future, should return a hashed value.
+ */
 std::string simpleRedactFieldValue(mutablebson::Element* current);
 
 /**

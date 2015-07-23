@@ -31,7 +31,7 @@
 #include "mongo/platform/basic.h"
 
 #include "mongo/db/curop.h"
-
+#include "mongo/bson/mutable/document.h"
 #include "mongo/base/disallow_copying.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
@@ -423,8 +423,7 @@ void redactFieldValue(mutablebson::Element* current,
     StringData thisFieldName = current->getFieldName();
 
     if (thisFieldName != "$comment") {  // never redact
-        current->setValueString(
-            StringData(getRedactedValue(current)));  // in the future, do some 1:1 hashing thing
+        current->setValueString(StringData(getRedactedValue(current)));
     }
 }
 
@@ -432,76 +431,80 @@ void redactFieldValue(mutablebson::Element* current,
  * Recursively iterates through all fields of a given mutable element, and redacts
  * the specified fields.
  */
-void redactSomeHelper(mutablebson::Element* current,
-                      const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-                      const std::vector<std::string>& redactFields,
-                      const std::string& matchingPath,
-                      bool isArrayMember = false) {
+void redactDocumentForLoggingHelper(
+    mutablebson::Element* current,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+    const std::vector<std::string>& redactFields,
+    const std::string& matchingPath,
+    bool isArrayMember = false) {
     std::string separator = (matchingPath.length() == 0) ? "" : ".";
     std::string separatedMatchingPath = matchingPath + separator;
 
     while (current->ok()) {
-        BSONType t = current->getType();
-        if (isArrayMember && (t == Object || t == Array)) {
+        BSONType type = current->getType();
+
+        // check if in an array, and is an object/array
+        if (isArrayMember && (type == Object || type == Array)) {
             // tunnel down, since array field names are meaningless (they are just indices)
-            bool isArray = (t == Array);
+            bool isArray = (type == Array);
             mutablebson::Element newCurrent = current->leftChild();
-            redactSomeHelper(&newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
-        } else {
-            // check if complete match
-            std::vector<std::string>::const_iterator fullMatchIt =
-                std::find_if(redactFields.begin(),
-                             redactFields.end(),
-                             [&matchingPath](const std::string& redactField)
-                                 -> bool { return redactField == matchingPath; });
-            if (fullMatchIt != redactFields.end() && *fullMatchIt == matchingPath) {
-                // then complete match. redact.
-                if (t == Object || t == Array) {
-                    bool isArray = (t == Array);
-                    mutablebson::Element newCurrent = current->leftChild();
-                    redactSomeHelper(
-                        &newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
-                } else {
-                    redactFieldValue(current, getRedactedValue);
-                }
+            redactDocumentForLoggingHelper(
+                &newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
+            *current = current->rightSibling();
+            continue;
+        }
 
+        // check if complete match
+        std::vector<std::string>::const_iterator fullMatchIt =
+            std::find(redactFields.begin(), redactFields.end(), matchingPath);
+
+        if (fullMatchIt != redactFields.end() && *fullMatchIt == matchingPath) {
+            // then complete match. redact.
+            if (type == Object || type == Array) {
+                bool isArray = (type == Array);
+                mutablebson::Element newCurrent = current->leftChild();
+                redactDocumentForLoggingHelper(
+                    &newCurrent, getRedactedValue, redactFields, matchingPath, isArray);
             } else {
-                // check if partial prefix match
-                StringData thisFieldName = current->getFieldName();
-                std::vector<std::string>::const_iterator prefixMatchIt = std::find_if(
-                    redactFields.begin(),
-                    redactFields.end(),
-                    [&matchingPath, &thisFieldName, &separator](
-                        const std::string& redactField) -> bool {
-                        if (std::equal(
-                                matchingPath.begin(), matchingPath.end(), redactField.begin())) {
-                            return redactField.compare(matchingPath.length() + separator.length(),
-                                                       thisFieldName.size(),
-                                                       thisFieldName.rawData(),
-                                                       thisFieldName.size()) == 0;
-                        }
-                        return false;
-                    });
-                std::string newMatchingPath = separatedMatchingPath + thisFieldName.toString();
-                if (prefixMatchIt != redactFields.end() &&
-                    std::equal(matchingPath.begin(),
-                               matchingPath.end(),
-                               ((std::string) * prefixMatchIt).begin())) {
-                    // then partial match. redact.
+                redactFieldValue(current, getRedactedValue);
+            }
+            *current = current->rightSibling();
+            continue;
+        }
 
-                    if (t == Object || t == Array) {
-                        bool isArray = (t == Array);
-                        mutablebson::Element newCurrent = current->leftChild();
-                        redactSomeHelper(&newCurrent,
-                                         getRedactedValue,
-                                         redactFields,
-                                         std::move(newMatchingPath),
-                                         isArray);
-                    } else if (*prefixMatchIt == newMatchingPath) {
-                        // only redact non-objects/arrays if complete match
-                        redactFieldValue(current, getRedactedValue);
-                    }
+        // check if partial prefix match
+        StringData thisFieldName = current->getFieldName();
+        std::vector<std::string>::const_iterator prefixMatchIt = std::find_if(
+            redactFields.begin(),
+            redactFields.end(),
+            [&matchingPath, &thisFieldName, &separator](const std::string& redactField) -> bool {
+                if (std::equal(matchingPath.begin(), matchingPath.end(), redactField.begin())) {
+                    return redactField.compare(matchingPath.length() + separator.length(),
+                                               thisFieldName.size(),
+                                               thisFieldName.rawData(),
+                                               thisFieldName.size()) == 0;
                 }
+                return false;
+            });
+        std::string newMatchingPath = separatedMatchingPath + thisFieldName.toString();
+
+        if (prefixMatchIt != redactFields.end() &&
+            std::equal(matchingPath.begin(),
+                       matchingPath.end(),
+                       ((std::string) * prefixMatchIt).begin())) {
+            // then partial match. redact.
+
+            if (type == Object || type == Array) {
+                bool isArray = (type == Array);
+                mutablebson::Element newCurrent = current->leftChild();
+                redactDocumentForLoggingHelper(&newCurrent,
+                                               getRedactedValue,
+                                               redactFields,
+                                               std::move(newMatchingPath),
+                                               isArray);
+            } else if (*prefixMatchIt == newMatchingPath) {
+                // only redact non-objects/arrays if complete match
+                redactFieldValue(current, getRedactedValue);
             }
         }
         *current = current->rightSibling();
@@ -510,26 +513,16 @@ void redactSomeHelper(mutablebson::Element* current,
 
 }  // namespace
 
-/**
- * Given a mutable element, replaces value with "***".
- */
 std::string simpleRedactFieldValue(mutablebson::Element* current) {
     return "***";
 }
 
-/**
- * Call this to redact a mutable BSON object.
- * redactFields is a vector of fields to redact. They can use dot notation;
- * they must be "absolute paths". If no fields are specified, the default
- * is to redact all fields (except $comment). $comment fields are NEVER
- * redacted. See tests for usage examples and expected behavior.
- * Side note, redactFields is not expected to be very large (1-3 elements.)
- */
-void redactSome(mutablebson::Document* cmdObj,
-                const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-                const std::vector<std::string>& redactFields) {
+void redactDocumentForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+    const std::vector<std::string>& redactFields) {
     mutablebson::Element current = cmdObj->root().leftChild();
-    redactSomeHelper(&current, getRedactedValue, redactFields, "");
+    redactDocumentForLoggingHelper(&current, getRedactedValue, redactFields, "");
 }
 
 #define OPDEBUG_TOSTRING_HELP(x) \
@@ -558,14 +551,14 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
                 s << curCommand->name << " ";
 
                 if (serverGlobalParams.logRedact) {
-                    curCommand->redactCommand(&cmdToLog);
+                    curCommand->extendedRedactForLogging(&cmdToLog);
                 }
 
                 s << cmdToLog.toString();
             } else {  // Should not happen but we need to handle curCommand == NULL gracefully
                 if (serverGlobalParams.logRedact) {
                     mutablebson::Document queryDoc(query);
-                    redactSome(&queryDoc, simpleRedactFieldValue);
+                    redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
                     s << queryDoc.toString();
                 } else {
                     s << query.toString();
@@ -576,7 +569,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
 
             if (serverGlobalParams.logRedact) {
                 mutablebson::Document queryDoc(query);
-                redactSome(&queryDoc, simpleRedactFieldValue);
+                redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
                 s << queryDoc.toString();
             } else {
                 s << query.toString();
@@ -592,7 +585,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
         s << " update: ";
         if (serverGlobalParams.logRedact) {
             mutablebson::Document updateDoc(updateobj);
-            redactSome(&updateDoc, simpleRedactFieldValue);
+            redactDocumentForLogging(&updateDoc, simpleRedactFieldValue);
             s << updateDoc.toString();
         } else {
             s << updateobj.toString();

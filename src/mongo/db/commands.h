@@ -195,7 +195,12 @@ public:
      */
     virtual void redactForLogging(mutablebson::Document* cmdObj);
 
-    virtual void redactCommand(mutablebson::Document* cmdObj);
+    /**
+     * Redacts "cmdObj" in-place of sensitive fields (as specified in implementations).
+     *
+     * The default implementation redacts all fields.
+     */
+    virtual void extendedRedactForLogging(mutablebson::Document* cmdObj);
 
     /**
      * Returns a copy of "cmdObj" in a form suitable for writing to logs.

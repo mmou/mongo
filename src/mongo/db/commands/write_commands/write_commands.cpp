@@ -267,8 +267,8 @@ void CmdInsert::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("documents", StringData::LiteralTag()));
 }
 
-void CmdInsert::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
+void CmdInsert::extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
 }
 
 void CmdInsert::help(stringstream& help) const {
@@ -281,8 +281,9 @@ void CmdUpdate::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("updates", StringData::LiteralTag()));
 }
 
-void CmdUpdate::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
+void CmdUpdate::extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    redactDocumentForLogging(
+        cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
 }
 
 void CmdUpdate::help(stringstream& help) const {
@@ -295,8 +296,8 @@ void CmdDelete::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("deletes", StringData::LiteralTag()));
 }
 
-void CmdDelete::redactCommand(mutablebson::Document* cmdObj) {
-    redactSome(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
+void CmdDelete::extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
 }
 
 void CmdDelete::help(stringstream& help) const {

@@ -251,8 +251,10 @@ Status addGeneralServerOptions(moe::OptionSection* options) {
                                moe::Switch,
                                "append to logpath instead of over-writing");
 
-    options->addOptionChaining(
-        "systemLog.logRedact", "logredact", moe::Switch, "redact query values in log");
+    options->addOptionChaining("systemLog.logRedact",
+                               "logredact",
+                               moe::Switch,
+                               "redact query content before writing to the log");
 
     options->addOptionChaining("systemLog.logRotate",
                                "logRotate",
@@ -909,11 +911,11 @@ Status storeServerOptions(const moe::Environment& params, const std::vector<std:
     }
 #endif  // _WIN32
 
-    if (params.count("systemLog.logAppend") && params["systemLog.logAppend"].as<bool>() == true) {
+    if (params.count("systemLog.logAppend") && params["systemLog.logAppend"].as<bool>()) {
         serverGlobalParams.logAppend = true;
     }
 
-    if (params.count("systemLog.logRedact") && params["systemLog.logRedact"].as<bool>() == true) {
+    if (params.count("systemLog.logRedact") && params["systemLog.logRedact"].as<bool>()) {
         serverGlobalParams.logRedact = true;
     }
 
