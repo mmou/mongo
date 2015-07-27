@@ -1257,6 +1257,12 @@ public:
         addPrivilegesRequiredForMapReduce(this, dbname, cmdObj, out);
     }
 
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(cmdObj,
+                                 simpleRedactFieldValue,
+                                 std::vector<std::string>{"map", "reduce", "finalize", "query"});
+    }
+
     bool run(OperationContext* txn,
              const string& dbname,
              BSONObj& cmd,

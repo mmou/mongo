@@ -32,12 +32,14 @@
 
 #include "mongo/platform/basic.h"
 
+#include "mongo/bson/mutable/document.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/db/auth/authorization_manager.h"
 #include "mongo/db/auth/authorization_manager_global.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/introspect.h"
 #include "mongo/db/jsobj.h"
@@ -170,6 +172,11 @@ public:
     }
 
     CmdEval() : Command("eval", false, "$eval") {}
+
+
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(cmdObj, simpleRedactFieldValue);
+    }
 
     bool run(OperationContext* txn,
              const string& dbname,

@@ -487,8 +487,18 @@ void runCommands(OperationContext* txn,
             std::string msg = str::stream() << "no such command: '" << request.getCommandName()
                                             << "'";
             LOG(2) << msg;
+
+            string cmdString = "";
+            if (serverGlobalParams.logRedact) {
+                mutablebson::Document cmdDoc(request.getCommandArgs());
+                redactDocumentForLogging(&cmdDoc, simpleRedactFieldValue);
+                cmdString = cmdDoc.toString();
+            } else {
+                cmdString = request.getCommandArgs().toString();
+            }
+
             uasserted(ErrorCodes::CommandNotFound,
-                      str::stream() << msg << ", bad cmd: '" << request.getCommandArgs() << "'");
+                      str::stream() << msg << ", bad cmd: '" << cmdString << "'");
         }
 
         LOG(2) << "run command " << request.getDatabase() << ".$cmd" << ' '

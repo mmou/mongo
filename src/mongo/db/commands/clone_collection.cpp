@@ -107,8 +107,7 @@ public:
     }
 
     void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"query"});
+        redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"query"});
     }
 
     virtual bool run(OperationContext* txn,
@@ -148,7 +147,7 @@ public:
         string queryString;
         if (serverGlobalParams.logRedact) {
             mutablebson::Document queryDoc(query);
-            redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+            extendedRedactForLogging(&queryDoc);
             queryString = queryDoc.toString();
         } else {
             queryString = query.toString();

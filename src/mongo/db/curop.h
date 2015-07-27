@@ -55,10 +55,12 @@ class Element;
 /**
  * Call this to redact a mutable BSON object.
  * redactFields is a vector of fields to redact. They can use dot notation;
- * they must be "absolute paths". If no fields are specified, the default
+ * they must be "full path names." If no fields are specified, the default
  * is to redact all fields (except $comment). $comment fields are NEVER
- * redacted. See tests for usage examples and expected behavior.
- * Side note, redactFields is not expected to be very large (1-3 elements.)
+ * redacted. See unit tests for usage examples and expected behavior.
+ * redactFields is a function that takes in an element and returns the
+ * redacted value for that element. (Side note, redactFields is not
+ * expected to be very large, maybe 1-3 elements.)
  */
 void redactDocumentForLogging(
     mutablebson::Document* cmdObj,
@@ -67,7 +69,7 @@ void redactDocumentForLogging(
 
 /**
  * Given a (any) mutable element, simply returns "***".
- * In the future, should return a hashed value.
+ * TODO: Should return a hash of the input.
  */
 std::string simpleRedactFieldValue(mutablebson::Element* current);
 
