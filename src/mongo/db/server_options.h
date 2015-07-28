@@ -43,6 +43,7 @@ struct ServerGlobalParams {
           indexBuildRetry(true),
           quiet(false),
           configsvr(false),
+          configsvrMode(ConfigServerMode::NONE),
           cpu(false),
           objcheck(true),
           defaultProfile(0),
@@ -80,6 +81,12 @@ struct ServerGlobalParams {
     bool quiet;  // --quiet
 
     bool configsvr;  // --configsvr
+    enum class ConfigServerMode {
+        NONE,
+        SCC,
+        CSRS,
+    };
+    ConfigServerMode configsvrMode;  // -- configsvrMode
 
     bool cpu;  // --cpu show cpu time periodically
 
