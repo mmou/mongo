@@ -488,17 +488,8 @@ void runCommands(OperationContext* txn,
                                             << "'";
             LOG(2) << msg;
 
-            string cmdString = "";
-            if (serverGlobalParams.logRedact) {
-                mutablebson::Document cmdDoc(request.getCommandArgs());
-                redactDocumentForLogging(&cmdDoc, simpleRedactFieldValue);
-                cmdString = cmdDoc.toString();
-            } else {
-                cmdString = request.getCommandArgs().toString();
-            }
-
             uasserted(ErrorCodes::CommandNotFound,
-                      str::stream() << msg << ", bad cmd: '" << cmdString << "'");
+                str::stream() << msg << ", bad cmd: '" << request.getCommandArgs() << "'");
         }
 
         LOG(2) << "run command " << request.getDatabase() << ".$cmd" << ' '

@@ -609,7 +609,8 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
     OPDEBUG_TOSTRING_HELP(writeConflicts);
 
     if (!exceptionInfo.empty()) {
-        s << " exception: " << exceptionInfo.msg;
+        s << " exception: ";
+        s << ((serverGlobalParams.logRedact) ? "***" : exceptionInfo.msg);
         if (exceptionInfo.code)
             s << " code:" << exceptionInfo.code;
     }
