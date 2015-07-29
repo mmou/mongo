@@ -200,7 +200,7 @@ private:
         return shardKey;
     }
 
-    bool _runCommand(DBConfigPtr conf,
+    bool _runCommand(shared_ptr<DBConfig> conf,
                      const ShardId& shardId,
                      const string& ns,
                      const BSONObj& cmdObj,
