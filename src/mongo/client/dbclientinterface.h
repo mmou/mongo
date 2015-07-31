@@ -373,10 +373,13 @@ public:
         _fields = o.getOwned();
     }
 
+    BSONObj toBSONObj() const {
+        return BSON("ns" << _ns << "n2skip" << _ntoskip << "n2return" << _ntoreturn << "options"
+                         << _options << "query" << _query << "fields" << _fields);
+    }
+
     std::string toString() const {
-        return str::stream() << "QSpec " << BSON("ns" << _ns << "n2skip" << _ntoskip << "n2return"
-                                                      << _ntoreturn << "options" << _options
-                                                      << "query" << _query << "fields" << _fields);
+        return str::stream() << "QSpec " << toBSONObj();
     }
 };
 

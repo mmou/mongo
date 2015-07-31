@@ -34,6 +34,7 @@
 
 #include "mongo/base/status.h"
 #include "mongo/base/owned_pointer_vector.h"
+#include "mongo/bson/mutable/document.h"
 #include "mongo/bson/util/builder.h"
 #include "mongo/bson/util/bson_extract.h"
 #include "mongo/client/connpool.h"
@@ -42,6 +43,7 @@
 #include "mongo/db/auth/action_type.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/max_time.h"
 #include "mongo/db/server_parameters.h"
 #include "mongo/db/namespace_string.h"
@@ -163,7 +165,16 @@ void Strategy::queryOp(Request& r) {
     audit::logQueryAuthzCheck(client, ns, q.query, status.code());
     uassertStatusOK(status);
 
-    LOG(3) << "query: " << q.ns << " " << q.query << " ntoreturn: " << q.ntoreturn
+    std::string queryString;
+    if (serverGlobalParams.logRedact) {
+        mutablebson::Document queryDoc(q.query);
+        redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+        queryString = queryDoc.toString();
+    } else {
+        queryString = q.query.toString();
+    }
+
+    LOG(3) << "query: " << q.ns << " " << queryString << " ntoreturn: " << q.ntoreturn
            << " options: " << q.queryOptions;
 
     if (q.ntoreturn == 1 && strstr(q.ns, ".$cmd"))
@@ -320,7 +331,22 @@ void Strategy::queryOp(Request& r) {
 void Strategy::clientCommandOp(Request& r) {
     QueryMessage q(r.d());
 
-    LOG(3) << "command: " << q.ns << " " << q.query << " ntoreturn: " << q.ntoreturn
+    Command* c = Command::getCommand(q.query);
+    std::string queryString;
+    if (serverGlobalParams.logRedact) {
+        mutablebson::Document cmdToLog(q.query);
+        if (c) {
+            c->extendedRedactForLogging(&cmdToLog);
+        } else {
+            // to be safe, just redact the whole command object.
+            redactDocumentForLogging(&cmdToLog, simpleRedactFieldValue);
+        }
+        queryString = cmdToLog.toString();
+    } else {
+        queryString = q.query.toString();
+    }
+
+    LOG(3) << "command: " << q.ns << " " << queryString << " ntoreturn: " << q.ntoreturn
            << " options: " << q.queryOptions;
 
     if (q.queryOptions & QueryOption_Exhaust) {

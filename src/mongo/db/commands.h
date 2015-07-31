@@ -297,7 +297,7 @@ public:
                                      BSONObjBuilder& anObjBuilder,
                                      int queryOptions = 0);
     static Command* findCommand(StringData name);
-
+    static Command* getCommand(BSONObj& obj);
     /**
      * Executes a command after stripping metadata, performing authorization checks,
      * handling audit impersonation, and (potentially) setting maintenance mode. This method

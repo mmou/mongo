@@ -34,12 +34,15 @@
 
 #include "mongo/client/parallel.h"
 
+#include "mongo/bson/mutable/document.h"
 #include "mongo/client/connpool.h"
 #include "mongo/client/constants.h"
 #include "mongo/client/dbclientcursor.h"
 #include "mongo/client/dbclient_rs.h"
 #include "mongo/client/replica_set_monitor.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/query/lite_parsed_query.h"
+#include "mongo/db/server_options.h"
 #include "mongo/s/catalog/catalog_cache.h"
 #include "mongo/s/chunk_manager.h"
 #include "mongo/s/client/shard_registry.h"
@@ -641,7 +644,17 @@ void ParallelSortClusteredCursor::startInit() {
             prefix = "creating";
         }
     }
-    LOG(pc) << prefix << " pcursor over " << _qSpec << " and " << _cInfo;
+
+    std::string qSpecString;
+    if (serverGlobalParams.logRedact) {
+        mutablebson::Document qSpecDoc(_qSpec.toBSONObj());
+        redactDocumentForLogging(
+            &qSpecDoc, simpleRedactFieldValue, std::vector<std::string>{"query"});
+        qSpecString = qSpecDoc.toString();
+    } else {
+        qSpecString = _qSpec.toString();
+    }
+    LOG(pc) << prefix << " pcursor over " << qSpecString << " and " << _cInfo;
 
     set<ShardId> shardIds;
     string vinfo;

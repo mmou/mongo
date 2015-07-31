@@ -144,6 +144,12 @@ void Command::execCommandClientBasic(OperationContext* txn,
     appendCommandStatus(result, ok, errmsg);
 }
 
+Command* Command::getCommand(BSONObj& obj) {
+    BSONElement e = obj.firstElement();
+    Command* c = e.type() ? Command::findCommand(e.fieldName()) : NULL;
+    return c;
+}
+
 void Command::runAgainstRegistered(const char* ns,
                                    BSONObj& jsobj,
                                    BSONObjBuilder& anObjBuilder,
@@ -154,12 +160,12 @@ void Command::runAgainstRegistered(const char* ns,
             "Illegal attempt to run a command against a namespace other than $cmd.",
             nsToCollectionSubstring(ns) == "$cmd");
 
-    BSONElement e = jsobj.firstElement();
-    std::string commandName = e.fieldName();
-    Command* c = e.type() ? Command::findCommand(commandName) : NULL;
+    Command* c = getCommand(jsobj);
     if (!c) {
-        Command::appendCommandStatus(
-            anObjBuilder, false, str::stream() << "no such cmd: " << commandName);
+        Command::appendCommandStatus(anObjBuilder,
+                                     false,
+                                     str::stream()
+                                         << "no such cmd: " << jsobj.firstElement().fieldName());
         anObjBuilder.append("code", ErrorCodes::CommandNotFound);
         Command::unknownCommands.increment();
         return;

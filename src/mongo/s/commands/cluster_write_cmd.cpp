@@ -34,6 +34,7 @@
 #include "mongo/db/client_basic.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/write_commands/write_commands_common.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/lasterror.h"
 #include "mongo/db/stats/counters.h"
 #include "mongo/db/stats/counters.h"
@@ -311,6 +312,11 @@ public:
         help << "insert documents";
     }
 
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(
+            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
+    }
+
 } clusterInsertCmd;
 
 class ClusterCmdUpdate : public ClusterWriteCmd {
@@ -321,6 +327,11 @@ public:
         help << "update documents";
     }
 
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(
+            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
+    }
+
 } clusterUpdateCmd;
 
 class ClusterCmdDelete : public ClusterWriteCmd {
@@ -329,6 +340,11 @@ public:
 
     void help(stringstream& help) const {
         help << "delete documents";
+    }
+
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(
+            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
     }
 
 } clusterDeleteCmd;

@@ -38,6 +38,7 @@
 
 #include "mongo/base/status.h"
 #include "mongo/db/commands.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/pipeline/document_source.h"
 #include "mongo/db/pipeline/expression_context.h"
 #include "mongo/db/pipeline/pipeline.h"
@@ -90,6 +91,11 @@ public:
                                        const BSONObj& cmdObj,
                                        std::vector<Privilege>* out) {
         Pipeline::addRequiredPrivileges(this, dbname, cmdObj, out);
+    }
+
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(
+            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"pipeline.$match"});
     }
 
     virtual bool run(OperationContext* txn,

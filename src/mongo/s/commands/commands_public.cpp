@@ -43,6 +43,7 @@
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/copydb.h"
 #include "mongo/db/commands/rename_collection.h"
+#include "mongo/db/curop.h"
 #include "mongo/db/lasterror.h"
 #include "mongo/db/query/lite_parsed_query.h"
 #include "mongo/s/catalog/catalog_cache.h"
@@ -1277,6 +1278,9 @@ public:
         // applyOps can do pretty much anything, so require all privileges.
         RoleGraph::generateUniversalPrivileges(out);
     }
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(cmdObj, simpleRedactFieldValue);
+    }
     virtual bool run(OperationContext* txn,
                      const string& dbName,
                      BSONObj& cmdObj,
@@ -1318,6 +1322,9 @@ public:
                                        std::vector<Privilege>* out) {
         // $eval can do pretty much anything, so require all privileges.
         RoleGraph::generateUniversalPrivileges(out);
+    }
+    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+        redactDocumentForLogging(cmdObj, simpleRedactFieldValue);
     }
     virtual bool run(OperationContext* txn,
                      const string& dbName,
