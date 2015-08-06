@@ -1272,9 +1272,11 @@ public:
         addPrivilegesRequiredForMapReduce(this, dbname, cmdObj, out);
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
         redactDocumentForLogging(cmdObj,
-                                 simpleRedactFieldValue,
+                                 getRedactedValue,
                                  std::vector<std::string>{"map", "reduce", "finalize", "query"});
     }
 

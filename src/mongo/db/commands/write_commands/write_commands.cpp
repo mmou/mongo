@@ -35,10 +35,10 @@
 #include "mongo/db/client.h"
 #include "mongo/db/commands/write_commands/batch_executor.h"
 #include "mongo/db/commands/write_commands/write_commands_common.h"
-#include "mongo/db/curop.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/json.h"
 #include "mongo/db/lasterror.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/ops/delete_request.h"
 #include "mongo/db/ops/parsed_delete.h"
 #include "mongo/db/ops/parsed_update.h"
@@ -267,8 +267,10 @@ void CmdInsert::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("documents", StringData::LiteralTag()));
 }
 
-void CmdInsert::extendedRedactForLogging(mutablebson::Document* cmdObj) {
-    redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
+void CmdInsert::extendedRedactForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+    redactDocumentForLogging(cmdObj, getRedactedValue, std::vector<std::string>{"documents"});
 }
 
 void CmdInsert::help(stringstream& help) const {
@@ -281,9 +283,11 @@ void CmdUpdate::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("updates", StringData::LiteralTag()));
 }
 
-void CmdUpdate::extendedRedactForLogging(mutablebson::Document* cmdObj) {
+void CmdUpdate::extendedRedactForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
     redactDocumentForLogging(
-        cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
+        cmdObj, getRedactedValue, std::vector<std::string>{"updates.q", "updates.u"});
 }
 
 void CmdUpdate::help(stringstream& help) const {
@@ -296,8 +300,10 @@ void CmdDelete::redactForLogging(mutablebson::Document* cmdObj) {
     redactTooLongLog(cmdObj, StringData("deletes", StringData::LiteralTag()));
 }
 
-void CmdDelete::extendedRedactForLogging(mutablebson::Document* cmdObj) {
-    redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
+void CmdDelete::extendedRedactForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+    redactDocumentForLogging(cmdObj, getRedactedValue, std::vector<std::string>{"deletes.q"});
 }
 
 void CmdDelete::help(stringstream& help) const {

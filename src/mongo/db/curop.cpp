@@ -30,13 +30,14 @@
 
 #include "mongo/platform/basic.h"
 
-#include "mongo/db/curop.h"
 #include "mongo/bson/mutable/document.h"
+#include "mongo/db/curop.h"
 #include "mongo/base/disallow_copying.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/server_status_metric.h"
 #include "mongo/db/json.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/util/fail_point_service.h"
 #include "mongo/util/log.h"
 
@@ -413,112 +414,7 @@ StringData getProtoString(int op) {
     MONGO_UNREACHABLE;
 }
 
-/**
- * Given a mutable element that is not an object or array, redacts its value. It replaces the value
- * with the output of the function getRedactedValue, which takes in the current Element. It never
- * redacts fields with the field name '$comment'.
- */
-void redactFieldValue(mutablebson::Element* current,
-                      const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
-    StringData thisFieldName = current->getFieldName();
-
-    if (thisFieldName != "$comment") {  // never redact
-        current->setValueString(StringData(getRedactedValue(current)));
-    }
-}
-
-/**
- * Recursively iterates through all fields of a given mutable element, and redacts
- * the specified fields using the specified getRedactedValue function.
- * matchingPath is either the full path up to the current element, or the full path up the
- * first element at which it matches a field in redactFields (in other words, we do not
- * append to matchingPath anymore after a complete match between the current matchingPath
- * and some member of redactFields is found.)
- * isArrayMember is true if the current element is a member of an array.
- */
-void redactDocumentForLoggingHelper(
-    mutablebson::Element* current,
-    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-    const std::vector<std::string>& redactFields,
-    const std::string& matchingPath,
-    bool isArrayMember = false) {
-    std::string separator = (matchingPath.length() == 0) ? "" : ".";
-    std::string separatedMatchingPath = matchingPath + separator;
-
-    BSONType type = current->getType();
-    if (!(type == Object || type == Array)) {
-        return redactFieldValue(current, getRedactedValue);
-    }
-
-    mutablebson::Element newCurrent = current->leftChild();
-    current = &newCurrent;
-    while (current->ok()) {
-        type = current->getType();
-
-        // check if in an array, and is an object/array
-        if (isArrayMember && (type == Object || type == Array)) {
-            // tunnel down, since array field names are meaningless (they are just indices)
-            redactDocumentForLoggingHelper(
-                current, getRedactedValue, redactFields, matchingPath, (type == Array));
-            *current = current->rightSibling();
-            continue;
-        }
-
-        // check if complete match with some element in redactFields
-        if (std::find(redactFields.begin(), redactFields.end(), matchingPath) !=
-            redactFields.end()) {
-            // then redact.
-            redactDocumentForLoggingHelper(
-                current, getRedactedValue, redactFields, matchingPath, (type == Array));
-            *current = current->rightSibling();
-            continue;
-        }
-
-        // check if partial prefix match with some element in redactFields
-        StringData thisFieldName = current->getFieldName();
-        if (std::find_if(
-                redactFields.begin(),
-                redactFields.end(),
-                [&matchingPath, &thisFieldName, &separator](
-                    const std::string& redactField) -> bool {
-                    // if matchingPath is a prefix of some element in redactFields
-                    if (std::equal(matchingPath.begin(), matchingPath.end(), redactField.begin())) {
-                        // return true if appending this FieldName to matchingPath will still be a
-                        // prefix of this element in redactFields (without creating any new strings)
-                        return redactField.compare(matchingPath.length() + separator.length(),
-                                                   thisFieldName.size(),
-                                                   thisFieldName.rawData(),
-                                                   thisFieldName.size()) == 0;
-                    }
-                    return false;
-                }) != redactFields.end()) {
-            // then redact.
-            std::string newMatchingPath = separatedMatchingPath + thisFieldName.toString();
-            redactDocumentForLoggingHelper(current,
-                                           getRedactedValue,
-                                           redactFields,
-                                           std::move(newMatchingPath),
-                                           (type == Array));
-        }
-        *current = current->rightSibling();
-    }
-}
-
 }  // namespace
-
-std::string simpleRedactFieldValue(mutablebson::Element* current) {
-    return "***";
-}
-
-void redactDocumentForLogging(
-    mutablebson::Document* cmdObj,
-    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-    const std::vector<std::string>& redactFields) {
-    mutablebson::Element current = cmdObj->root();
-    if (current.getType() == Object) {  // should always be true
-        redactDocumentForLoggingHelper(&current, getRedactedValue, redactFields, "");
-    }
-}
 
 #define OPDEBUG_TOSTRING_HELP(x) \
     if (x >= 0)                  \
@@ -546,14 +442,14 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
                 s << curCommand->name << " ";
 
                 if (serverGlobalParams.logRedact) {
-                    curCommand->extendedRedactForLogging(&cmdToLog);
+                    curCommand->extendedRedactForLogging(&cmdToLog, hashRedactFieldValue);
                 }
 
                 s << cmdToLog.toString();
             } else {  // Should not happen but we need to handle curCommand == NULL gracefully
                 if (serverGlobalParams.logRedact) {
                     mutablebson::Document queryDoc(query);
-                    redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+                    redactDocumentForLogging(&queryDoc, hashRedactFieldValue);
                     s << queryDoc.toString();
                 } else {
                     s << query.toString();
@@ -564,7 +460,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
 
             if (serverGlobalParams.logRedact) {
                 mutablebson::Document queryDoc(query);
-                redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+                redactDocumentForLogging(&queryDoc, hashRedactFieldValue);
                 s << queryDoc.toString();
             } else {
                 s << query.toString();
@@ -580,7 +476,7 @@ string OpDebug::report(const CurOp& curop, const SingleThreadedLockStats& lockSt
         s << " update: ";
         if (serverGlobalParams.logRedact) {
             mutablebson::Document updateDoc(updateobj);
-            redactDocumentForLogging(&updateDoc, simpleRedactFieldValue);
+            redactDocumentForLogging(&updateDoc, hashRedactFieldValue);
             s << updateDoc.toString();
         } else {
             s << updateobj.toString();

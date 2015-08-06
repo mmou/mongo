@@ -331,7 +331,9 @@ Status Command::checkAuthForCommand(ClientBasic* client,
 
 void Command::redactForLogging(mutablebson::Document* cmdObj) {}
 
-void Command::extendedRedactForLogging(mutablebson::Document* cmdObj) {}
+void Command::extendedRedactForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {}
 
 BSONObj Command::getRedactedCopyForLogging(const BSONObj& cmdObj) {
     namespace mmb = mutablebson;

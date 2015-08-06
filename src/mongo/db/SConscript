@@ -151,10 +151,32 @@ env.Library(
     LIBDEPS=[
         '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
         '$BUILD_DIR/mongo/db/concurrency/lock_manager',
-        '$BUILD_DIR/mongo/db/service_context',
+        '$BUILD_DIR/mongo/db/log_redactor',
+        '$BUILD_DIR/mongo/db/service_context',        
         '$BUILD_DIR/mongo/util/fail_point',
         '$BUILD_DIR/mongo/util/net/network',
         '$BUILD_DIR/mongo/util/progress_meter',
+    ],
+)
+
+env.Library(
+    target='log_redactor',
+    source=[
+        'log_redactor.cpp',
+    ],
+    LIBDEPS=[
+        '$BUILD_DIR/mongo/bson/mutable/mutable_bson',
+        '$BUILD_DIR/mongo/crypto/crypto_${MONGO_CRYPTO}'
+    ]
+)
+
+env.CppUnitTest(
+    target='log_redactor_test',
+    source=[
+        'log_redactor_test.cpp',
+    ],
+    LIBDEPS=[
+        'log_redactor',
     ],
 )
 
@@ -465,7 +487,6 @@ env.Library(
         'auth/serverauth',
         'commands/server_status_core',
         'common',
-        'curop',
         'exec/working_set',
         'index/key_generator',
         'index_names',
@@ -641,12 +662,12 @@ serveronlyLibdeps = [
     "common",
     "concurrency/lock_manager",
     "concurrency/write_conflict_exception",
-    "curop",
     "exec/exec",
     "exec/working_set",
     "fts/ftsmongod",
     "global_timestamp",
     "index/index_descriptor",
+    "log_redactor",
     "ops/update_driver",
     "pipeline/document_source",
     "pipeline/pipeline",

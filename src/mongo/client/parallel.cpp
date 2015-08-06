@@ -40,7 +40,7 @@
 #include "mongo/client/dbclientcursor.h"
 #include "mongo/client/dbclient_rs.h"
 #include "mongo/client/replica_set_monitor.h"
-#include "mongo/db/curop.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/query/lite_parsed_query.h"
 #include "mongo/db/server_options.h"
 #include "mongo/s/catalog/catalog_cache.h"
@@ -644,16 +644,19 @@ void ParallelSortClusteredCursor::startInit() {
             prefix = "creating";
         }
     }
+    /*
+        std::string qSpecString;
+        if (serverGlobalParams.logRedact) {
+            mutablebson::Document qSpecDoc(_qSpec.toBSONObj());
+            redactDocumentForLogging(
+                &qSpecDoc, simpleRedactFieldValue, std::vector<std::string>{"query"});
+            qSpecString = qSpecDoc.toString();
+        } else {
+            qSpecString = _qSpec.toString();
+        }
+    */
+    std::string qSpecString = _qSpec.toString();
 
-    std::string qSpecString;
-    if (serverGlobalParams.logRedact) {
-        mutablebson::Document qSpecDoc(_qSpec.toBSONObj());
-        redactDocumentForLogging(
-            &qSpecDoc, simpleRedactFieldValue, std::vector<std::string>{"query"});
-        qSpecString = qSpecDoc.toString();
-    } else {
-        qSpecString = _qSpec.toString();
-    }
     LOG(pc) << prefix << " pcursor over " << qSpecString << " and " << _cInfo;
 
     set<ShardId> shardIds;

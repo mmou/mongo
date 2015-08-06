@@ -39,11 +39,11 @@
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
-#include "mongo/db/curop.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/introspect.h"
 #include "mongo/db/jsobj.h"
 #include "mongo/db/json.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/operation_context.h"
 #include "mongo/scripting/engine.h"
 #include "mongo/util/log.h"
@@ -174,8 +174,10 @@ public:
     CmdEval() : Command("eval", false, "$eval") {}
 
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(cmdObj, simpleRedactFieldValue);
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+        redactDocumentForLogging(cmdObj, getRedactedValue);
     }
 
     bool run(OperationContext* txn,

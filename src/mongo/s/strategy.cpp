@@ -43,7 +43,7 @@
 #include "mongo/db/auth/action_type.h"
 #include "mongo/db/auth/authorization_session.h"
 #include "mongo/db/commands.h"
-#include "mongo/db/curop.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/max_time.h"
 #include "mongo/db/server_parameters.h"
 #include "mongo/db/namespace_string.h"
@@ -168,7 +168,7 @@ void Strategy::queryOp(Request& r) {
     std::string queryString;
     if (serverGlobalParams.logRedact) {
         mutablebson::Document queryDoc(q.query);
-        redactDocumentForLogging(&queryDoc, simpleRedactFieldValue);
+        redactDocumentForLogging(&queryDoc, hashRedactFieldValue);
         queryString = queryDoc.toString();
     } else {
         queryString = q.query.toString();
@@ -336,10 +336,10 @@ void Strategy::clientCommandOp(Request& r) {
     if (serverGlobalParams.logRedact) {
         mutablebson::Document cmdToLog(q.query);
         if (c) {
-            c->extendedRedactForLogging(&cmdToLog);
+            c->extendedRedactForLogging(&cmdToLog, hashRedactFieldValue);
         } else {
             // to be safe, just redact the whole command object.
-            redactDocumentForLogging(&cmdToLog, simpleRedactFieldValue);
+            redactDocumentForLogging(&cmdToLog, hashRedactFieldValue);
         }
         queryString = cmdToLog.toString();
     } else {

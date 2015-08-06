@@ -263,6 +263,7 @@ env.Library(
         '$BUILD_DIR/mongo/db/auth/authmongos',
         '$BUILD_DIR/mongo/client/parallel',
         '$BUILD_DIR/mongo/db/fts/ftsmongos',
+        '$BUILD_DIR/mongo/db/log_redactor',        
         '$BUILD_DIR/mongo/db/stats/counters',
         '$BUILD_DIR/mongo/db/query/explain_common',
         '$BUILD_DIR/mongo/db/query/lite_parsed_query',

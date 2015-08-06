@@ -36,7 +36,7 @@
 #include "mongo/db/catalog/database.h"
 #include "mongo/db/client.h"
 #include "mongo/db/commands.h"
-#include "mongo/db/curop.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/db_raii.h"
 #include "mongo/db/exec/pipeline_proxy.h"
 #include "mongo/db/service_context.h"
@@ -321,9 +321,11 @@ public:
         return true;
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
         redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"pipeline.$match"});
+            cmdObj, getRedactedValue, std::vector<std::string>{"pipeline.$match"});
     }
 
 } cmdPipeline;

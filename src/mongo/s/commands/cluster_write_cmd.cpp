@@ -312,9 +312,10 @@ public:
         help << "insert documents";
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"documents"});
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+        redactDocumentForLogging(cmdObj, getRedactedValue, std::vector<std::string>{"documents"});
     }
 
 } clusterInsertCmd;
@@ -327,9 +328,11 @@ public:
         help << "update documents";
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
         redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"updates.q", "updates.u"});
+            cmdObj, getRedactedValue, std::vector<std::string>{"updates.q", "updates.u"});
     }
 
 } clusterUpdateCmd;
@@ -342,9 +345,10 @@ public:
         help << "delete documents";
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"deletes.q"});
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+        redactDocumentForLogging(cmdObj, getRedactedValue, std::vector<std::string>{"deletes.q"});
     }
 
 } clusterDeleteCmd;

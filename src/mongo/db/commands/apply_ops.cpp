@@ -83,8 +83,10 @@ public:
         RoleGraph::generateUniversalPrivileges(out);
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(cmdObj, simpleRedactFieldValue);
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+        redactDocumentForLogging(cmdObj, getRedactedValue);
     }
 
     virtual bool run(OperationContext* txn,

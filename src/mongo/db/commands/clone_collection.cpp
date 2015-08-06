@@ -106,8 +106,10 @@ public:
                 "is placed at the same db.collection (namespace) as the source.\n";
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
-        redactDocumentForLogging(cmdObj, simpleRedactFieldValue, std::vector<std::string>{"query"});
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
+        redactDocumentForLogging(cmdObj, getRedactedValue, std::vector<std::string>{"query"});
     }
 
     virtual bool run(OperationContext* txn,
@@ -147,7 +149,7 @@ public:
         string queryString;
         if (serverGlobalParams.logRedact) {
             mutablebson::Document queryDoc(query);
-            extendedRedactForLogging(&queryDoc);
+            extendedRedactForLogging(&queryDoc, hashRedactFieldValue);
             queryString = queryDoc.toString();
         } else {
             queryString = query.toString();

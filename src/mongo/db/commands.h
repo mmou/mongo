@@ -40,6 +40,7 @@
 #include "mongo/db/client_basic.h"
 #include "mongo/db/commands/server_status_metric.h"
 #include "mongo/db/jsobj.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/db/query/explain.h"
 #include "mongo/rpc/reply_builder_interface.h"
 #include "mongo/rpc/request_interface.h"
@@ -200,7 +201,9 @@ public:
      *
      * The default implementation does nothing.
      */
-    virtual void extendedRedactForLogging(mutablebson::Document* cmdObj);
+    virtual void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue);
 
     /**
      * Returns a copy of "cmdObj" in a form suitable for writing to logs.

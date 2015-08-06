@@ -28,26 +28,40 @@
 
 #pragma once
 
-#include <cstddef>
+#include <functional>
+#include <string>
+#include <vector>
 
 namespace mongo {
-namespace crypto {
-/*
- * Computes a SHA-1 hash of 'input'.
+
+namespace mutablebson {
+class Document;
+class Element;
+}
+
+/**
+ * Call this to redact a mutable BSON object.
+ * redactFields is a vector of fields to redact. They can use dot notation;
+ * they must be "full path names." If no fields are specified, the default
+ * is to redact all fields (except $comment). $comment fields are NEVER
+ * redacted. See unit tests for usage examples and expected behavior.
+ * redactFields is a function that takes in an element and returns the
+ * redacted value for that element. (Side note, redactFields is not
+ * expected to be very large, maybe 1-3 elements.)
  */
-bool sha1(const unsigned char* input, const size_t inputLen, unsigned char* output);
+void redactDocumentForLogging(
+    mutablebson::Document* cmdObj,
+    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
+    const std::vector<std::string>& redactFields = {""});
 
-/*
- * Computes a HMAC SHA-1 keyed hash of 'input' using the key 'key'
+/**
+ * Given a (any) mutable element, simply returns "***".
  */
-bool hmacSha1(const unsigned char* key,
-              const size_t keyLen,
-              const unsigned char* input,
-              const size_t inputLen,
-              unsigned char* output,
-              unsigned int* outputLen);
+std::string simpleRedactFieldValue(mutablebson::Element* current);
 
-const int digestLen = 20;  // length (in bytes) of SHA1 hash
+/**
+ * Given a (any) mutable element, returns SHA1 hash of value as string.
+ */
+std::string hashRedactFieldValue(mutablebson::Element* current);
 
-}  // namespace crypto
-}  // namespace mongo
+}

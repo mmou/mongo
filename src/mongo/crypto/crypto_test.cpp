@@ -31,7 +31,6 @@
 
 namespace mongo {
 namespace {
-const int digestLen = 20;
 
 // SHA-1 test vectors from http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA_All.pdf
 const struct {

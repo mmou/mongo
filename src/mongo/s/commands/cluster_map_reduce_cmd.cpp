@@ -39,6 +39,7 @@
 #include "mongo/db/catalog/document_validation.h"
 #include "mongo/db/commands.h"
 #include "mongo/db/commands/mr.h"
+#include "mongo/db/log_redactor.h"
 #include "mongo/s/catalog/catalog_cache.h"
 #include "mongo/s/catalog/catalog_manager.h"
 #include "mongo/s/client/shard_connection.h"
@@ -176,9 +177,11 @@ public:
         mr::addPrivilegesRequiredForMapReduce(this, dbname, cmdObj, out);
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
         redactDocumentForLogging(cmdObj,
-                                 simpleRedactFieldValue,
+                                 getRedactedValue,
                                  std::vector<std::string>{"map", "reduce", "finalize", "query"});
     }
 

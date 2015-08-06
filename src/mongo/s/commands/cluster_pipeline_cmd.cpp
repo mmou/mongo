@@ -93,9 +93,11 @@ public:
         Pipeline::addRequiredPrivileges(this, dbname, cmdObj, out);
     }
 
-    void extendedRedactForLogging(mutablebson::Document* cmdObj) {
+    void extendedRedactForLogging(
+        mutablebson::Document* cmdObj,
+        const std::function<std::string(mutablebson::Element*)>& getRedactedValue) {
         redactDocumentForLogging(
-            cmdObj, simpleRedactFieldValue, std::vector<std::string>{"pipeline.$match"});
+            cmdObj, getRedactedValue, std::vector<std::string>{"pipeline.$match"});
     }
 
     virtual bool run(OperationContext* txn,

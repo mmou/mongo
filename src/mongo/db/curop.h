@@ -47,32 +47,6 @@ class Command;
 class CurOp;
 class OperationContext;
 
-namespace mutablebson {
-class Document;
-class Element;
-}
-
-/**
- * Call this to redact a mutable BSON object.
- * redactFields is a vector of fields to redact. They can use dot notation;
- * they must be "full path names." If no fields are specified, the default
- * is to redact all fields (except $comment). $comment fields are NEVER
- * redacted. See unit tests for usage examples and expected behavior.
- * redactFields is a function that takes in an element and returns the
- * redacted value for that element. (Side note, redactFields is not
- * expected to be very large, maybe 1-3 elements.)
- */
-void redactDocumentForLogging(
-    mutablebson::Document* cmdObj,
-    const std::function<std::string(mutablebson::Element*)>& getRedactedValue,
-    const std::vector<std::string>& redactFields = {""});
-
-/**
- * Given a (any) mutable element, simply returns "***".
- * TODO: Should return a hash of the input.
- */
-std::string simpleRedactFieldValue(mutablebson::Element* current);
-
 /**
  * stores a copy of a bson obj in a fixed size buffer
  * if its too big for the buffer, says "too big"
