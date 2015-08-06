@@ -63,5 +63,4 @@ std::string simpleRedactFieldValue(mutablebson::Element* current);
  * Given a (any) mutable element, returns SHA1 hash of value as string.
  */
 std::string hashRedactFieldValue(mutablebson::Element* current);
-
 }

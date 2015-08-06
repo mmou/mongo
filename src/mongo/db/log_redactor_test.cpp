@@ -28,7 +28,7 @@
 
 #include "mongo/db/log_redactor.h"
 #include "mongo/bson/mutable/document.h"
-#include "mongo/bson/json.h" 
+#include "mongo/bson/json.h"
 #include "mongo/unittest/unittest.h"
 
 namespace mongo {
@@ -423,5 +423,5 @@ TEST(redactDocumentForLogging, IgnoreNonexistentFields) {
     ASSERT_EQUALS(doc.getObject(), robj);
 }
 
-} // namespace
-} // namespace
+}  // namespace
+}  // namespace

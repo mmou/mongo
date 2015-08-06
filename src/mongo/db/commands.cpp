@@ -491,7 +491,7 @@ void runCommands(OperationContext* txn,
             LOG(2) << msg;
 
             uasserted(ErrorCodes::CommandNotFound,
-                str::stream() << msg << ", bad cmd: '" << request.getCommandArgs() << "'");
+                      str::stream() << msg << ", bad cmd: '" << request.getCommandArgs() << "'");
         }
 
         LOG(2) << "run command " << request.getDatabase() << ".$cmd" << ' '

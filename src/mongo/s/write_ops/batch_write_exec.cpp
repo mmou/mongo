@@ -221,7 +221,7 @@ void BatchWriteExec::executeBatch(const BatchedCommandRequest& clientRequest,
                 request.setNS(nss);
 
                 // TODO: redact request
-                
+
                 LOG(4) << "sending write batch to " << shardHost.toString() << ": "
                        << request.toString() << endl;
 

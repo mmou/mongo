@@ -139,7 +139,7 @@ std::string hashRedactFieldValue(mutablebson::Element* current) {
     unsigned char hash[20];
     if (crypto::sha1(value, element.valuesize(), hash)) {
         return toHexLower(reinterpret_cast<const void*>(hash), 20);
-//        return std::string((char*)hash, 20);
+        //        return std::string((char*)hash, 20);
     } else {
         return "***";
     }
@@ -155,4 +155,4 @@ void redactDocumentForLogging(
     }
 }
 
-} // namespace
+}  // namespace
